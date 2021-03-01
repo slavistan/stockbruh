@@ -1,0 +1,45 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Mode noParam",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+        },
+        {
+            "name": "InitialLoad(1)",
+            "type": "python",
+            "request": "launch",
+            "program": "./check_sentiment.py",
+            "console": "integratedTerminal",
+            "args": [
+                "1"
+            ]
+        },
+        {
+            "name": "Cleanup(2)",
+            "type": "python",
+            "request": "launch",
+            "program": "./check_sentiment.py",
+            "console": "integratedTerminal",
+            "args": [
+                "2"
+            ]
+        },
+        {
+            "name": "Daily price update(5)",
+            "type": "python",
+            "request": "launch",
+            "program": "./check_sentiment.py",
+            "console": "integratedTerminal",
+            "args": [
+                "5"
+            ]
+        }
+    ],
+}
