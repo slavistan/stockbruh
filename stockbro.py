@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from src import rss
+from src import util
 
 
 def rss_fetch() -> int:
@@ -21,76 +22,103 @@ def rss_fetch() -> int:
     cfg = configparser.ConfigParser(inline_comment_prefixes=";")
     cfg.read("setup.cfg")
     urls = [item for (key, item) in cfg.items("rss-feeds")]
-    dbpath = cfg["project"]["rss-feedsdb-path"]
-    tablename = cfg["project"]["rss-feedsdb-table-items"]
+    feedsdb_path = cfg["project"]["rss-feedsdb-path"]
+    feedsdb_schema = cfg["project"]["rss-feedsdb-schema"]
 
     # Count rows in database table before insertion
-    path = Path(dbpath)
-    if Path(dbpath).is_file():
-        conn = sqlite3.connect(str(path))
-        rows_before = int(conn.execute(f"SELECT COUNT(*) FROM {tablename}").fetchone()[0])
-        conn.close()
-    else:
-        rows_before = 0
+    util.create_db(feedsdb_path, feedsdb_schema)
+    conn = sqlite3.connect(feedsdb_path)
+    rows_before = int(conn.execute("SELECT COUNT(*) FROM items").fetchone()[0])
+    conn.close()
 
     # Store feeds to database
-    rss.feeds_to_database(urls, dbpath, tablename=tablename,
+    rss.feeds_to_database(urls, feedsdb_path, tablename="items",
                           tags={"guid": "rss_guid", "link": "rss_link", "pubDate": "rss_pubdate",
                                 "title": "rss_title", "description": "rss_description"},
                           keys=["rss_guid", "rss_link"])
 
     # Count rows in database table after insertion
-    conn = sqlite3.connect(str(path))
-    rows_after = int(conn.execute(f"SELECT COUNT(*) FROM {tablename}").fetchone()[0])
+    conn = sqlite3.connect(feedsdb_path)
+    rows_after = int(conn.execute("SELECT COUNT(*) FROM items").fetchone()[0])
     conn.close()
 
     return rows_after - rows_before
 
 
-if __name__ == "__main__":
-    #
-    # Parse command-line arguments
-    #
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-v", "--verbosity", action="count", help="Enable verbose output", default=0)
-    subparsers = parser.add_subparsers(help="command help", dest="command")
+# TODO: Remove functions and __name__ == ...; Use executable script directly
 
-    # configure history subcommand
-    parser_fetch_rss_feeds = subparsers.add_parser("rss-fetch")
+#
+# Parse command-line arguments
+#
+parser = argparse.ArgumentParser()
+parser.add_argument("-v", "--verbosity", action="count", help="Enable verbose output", default=0)
+subparsers = parser.add_subparsers(help="command help", dest="command")
 
-    args = parser.parse_args()
+# configure history subcommand
+parser_fetch_rss_feeds = subparsers.add_parser("rss-fetch")
+parser_fetch_rss_feeds = subparsers.add_parser("rss-extract-fulltext")
 
-    # Configure logging. Affects code in all child modules. Logs are always
-    # stored at full maximum information in the logfile, but the log level may
-    # be selectively selected for terminal output.
-    cfg = configparser.ConfigParser(inline_comment_prefixes=";")
-    cfg.read("setup.cfg")
-    logdir = Path(cfg["project"]["logdir"])
-    if not logdir.is_dir():
-        logdir.mkdir(parents=True, exist_ok=True)
-    logfilename = str(datetime.now().strftime(r"%Y-%m-%d")) + ".log"
-    logpath = str(logdir / logfilename)  # log-directory/YYYY-MM-DD.log; one logfile per day
-    logger_file = logging.FileHandler(logpath)
-    file_formatter = logging.Formatter('[%(levelname)s] ⌚ %(asctime)s %(funcName)s: %(message)s')
-    logger_file.setFormatter(file_formatter)
-    logger_file.setLevel(logging.DEBUG)
-    terminal_formatter = logging.Formatter('[%(levelname)s] %(funcName)s: %(message)s')
-    logger_terminal = logging.StreamHandler()
-    logger_terminal.setFormatter(file_formatter)
-    if args.verbosity == 0:
-        logger_terminal.setLevel(logging.WARNING)
-    elif args.verbosity == 1:
-        logger_terminal.setLevel(logging.INFO)
-    else:
-        logger_terminal.setLevel(logging.DEBUG)
-    root_logger = logging.getLogger()
-    root_logger.addHandler(logger_file)
-    root_logger.addHandler(logger_terminal)
-    root_logger.setLevel(logging.DEBUG)
+args = parser.parse_args()
 
-    #
-    # Run selected command
-    #
-    if args.command == "rss-fetch":
-        rows_created = rss_fetch()
-        logging.info(f"Generated {rows_created} new RSS record(s).")
+# Configure logging. Affects code in all child modules. Logs are always
+# stored at full maximum information in the logfile, but the log level may
+# be selectively selected for terminal output.
+cfg = configparser.ConfigParser(inline_comment_prefixes=";")
+cfg.read("setup.cfg")
+logdir = Path(cfg["project"]["logdir"])
+if not logdir.is_dir():
+    logdir.mkdir(parents=True, exist_ok=True)
+logfilename = str(datetime.now().strftime(r"%Y-%m-%d")) + ".log"
+logpath = str(logdir / logfilename)  # log-directory/YYYY-MM-DD.log; one logfile per day
+logger_file = logging.FileHandler(logpath)
+file_formatter = logging.Formatter('[%(levelname)s] ⌚ %(asctime)s %(funcName)s: %(message)s')
+logger_file.setFormatter(file_formatter)
+logger_file.setLevel(logging.DEBUG)
+# FIXME: Terminal logger uses file formatter :(
+terminal_formatter = logging.Formatter('[%(levelname)s] %(funcName)s: %(message)s')
+logger_terminal = logging.StreamHandler()
+logger_terminal.setFormatter(file_formatter)
+if args.verbosity == 0:
+    logger_terminal.setLevel(logging.WARNING)
+elif args.verbosity == 1:
+    logger_terminal.setLevel(logging.INFO)
+else:
+    logger_terminal.setLevel(logging.DEBUG)
+root_logger = logging.getLogger()
+root_logger.addHandler(logger_file)
+root_logger.addHandler(logger_terminal)
+root_logger.setLevel(logging.DEBUG)
+
+#
+# Run selected command
+#
+if args.command == "rss-fetch":
+    # TOOD: Remove rss_fetch() and place implementation here
+    rows_created = rss_fetch()
+    logging.info(f"Generated {rows_created} new RSS record(s).")
+
+elif args.command == "rss-extract-fulltext":
+    # Create accessed databases if necessary
+    util.create_db(cfg["project"]["rss-feedsdb-path"], cfg["project"]["rss-feedsdb-schema"])
+    util.create_db(cfg["project"]["rss-catalogdb-path"], cfg["project"]["rss-catalogdb-schema"])
+
+    conn_feeds = sqlite3.connect(cfg["project"]["rss-feedsdb-path"])
+    conn_catalog = sqlite3.connect(cfg["project"]["rss-catalogdb-path"])
+    sqlfoo = "SELECT items.rss_guid, items.rss_link, rss_pubdate, rss_title, rss_description FROM " \
+        "items LEFT JOIN progress ON (items.rss_guid = progress.rss_guid AND items.rss_link = progress.rss_link) " \
+        "WHERE (can_delete IS NULL OR can_delete != 1)"
+    for row in conn_feeds.execute(sqlfoo):
+        # CONTINUEHERE
+        #  1. copy: rss-feeds::items::rss_link -> rss-catalog::items::link
+        #           rss_pubdate -> pubdate
+        #           rss_description -> description
+        #  2. pubdate zu standardisiertem Format konvertieren -> pubdate
+        #  3. volltext extrahieren -> fulltext
+        #  4. rss-feeds::progress::can_delete = 1
+        print(str(row))
+
+    conn_feeds.commit()
+    conn_feeds.close()
+    conn_catalog.commit()
+    conn_catalog.close()
+    
