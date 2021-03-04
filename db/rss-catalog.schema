@@ -1,0 +1,23 @@
+CREATE TABLE texts (
+    link TEXT,        -- RSS link
+    pubdate TEXT,     -- RSS pubDate in standard format
+    title TEXT,       -- RSS title
+    description TEXT, -- RSS description
+    fulltext TEXT,    -- Extracted fulltext
+    PRIMARY KEY (link, pubdate)
+);
+
+CREATE TABLE analysis (
+    link TEXT,
+    pubdate TEXT,
+    symbols_verbatim TEXT, -- Symbols which occur verbatim in the fulltext
+    symbols_deduced TEXT,  -- Symbols which were implicitly referred to in the fulltext
+    PRIMARY KEY (link, pubdate)
+);
+
+CREATE TABLE progress (
+    link TEXT,
+    pubdate TEXT,
+    can_delete INTEGER,
+    PRIMARY KEY (link, pubdate)
+);

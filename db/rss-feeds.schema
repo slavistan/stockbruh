@@ -1,0 +1,15 @@
+CREATE TABLE items (
+    rss_guid TEXT,        -- RSS 'guid' tag
+    rss_link TEXT,        -- RSS 'link' tag
+    rss_pubdate TEXT,     -- RSS 'pubDate' tag
+    rss_title TEXT,       -- RSS 'title' tag
+    rss_description TEXT, -- RSS 'description' tag
+    PRIMARY KEY (rss_guid, rss_link)
+);
+
+CREATE TABLE progress (
+    rss_guid TEXT,
+    rss_link TEXT,
+    can_delete INTEGER,
+    PRIMARY KEY (rss_guid, rss_link)
+);
