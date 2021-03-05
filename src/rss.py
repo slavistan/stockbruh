@@ -164,7 +164,9 @@ def rss_trace_link(link: str) -> str:
     if tld == "finanznachrichten.de":
         appetizer = soup.find("div", {"id": "artikelTextPuffer"})
 
-        # Page shows only embedded article preview. Track down external news id.
+        # Page shows only embedded article preview. Track down external news id, an 8 digit number hidden inside
+        # the value of the 'onclick' property of a 'span' tag. The ID is then used to retrieve the redirection target.
+        # Example: '<span onclick="FN.artikelKomplettID('0', 52172551) ...'"
         if appetizer is not None:
             onclick_span = appetizer.find("span", {"onclick": True})
             if onclick_span is not None:
