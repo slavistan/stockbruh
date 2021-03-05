@@ -4,14 +4,19 @@ import sqlite3
 from pathlib import Path
 
 
-def create_db(dbpath, schemapath=None):
-    """If sqlite database *dbpath* does not exist create it and execute SQL instructions from file.
+def create_db(dbpath, schemafile=None):
+    """Create database and execute SQL instructions from file.
+
+    If sqlite database `dbpath` does not exist, it will be created. If, in
+    addition, a `schemafile` is provided the file's contents are executed as
+    SQL instructions. If the database exists calls to this function are a
+    no-op. Use this function to create and preconfigure sqlite databases.
 
     Parameters
     ----------
     dbpath: str
-        Path to database. All subdirectories and the database will be created
-        if not existing.
+        Path to sqlite3 database. All subdirectories and the database will be
+        created if not existing.
 
     schemapath: str or None
         Path to file containing SQL instructions or 'None', if no instructions
@@ -29,11 +34,11 @@ def create_db(dbpath, schemapath=None):
     logging.debug(f"Created database '{str(dbpath)}'.")
 
     # Execute SQL from file
-    if schemapath is not None:
-        with open(schemapath) as f:
+    if schemafile is not None:
+        with open(schemafile) as f:
             cur = conn.cursor()
             cur.executescript(f.read())
-            logging.debug(f"Executed SQL in '{schemapath}'.")
+            logging.debug(f"Executed SQL in '{schemafile}'.")
     conn.commit()
     conn.close()
 
