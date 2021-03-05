@@ -146,7 +146,7 @@ elif args.command == "rss-download-html":
         logging.info(f"Downloading raw HTML of RSS item {ii}/{len(records)}.")
         guid, url = record[0], record[1]
         try:
-            destination_url = rss.rss_trace_link(url)  # 
+            destination_url = rss.rss_trace_link(url)  # track down destination url, not the appetizer
             reply = requests.get(destination_url, headers={'User-Agent': util.USERAGENT}, timeout=3)
             reply.raise_for_status()  # throw if 400 ≤ ret_code ≤ 600
             html = reply.text
