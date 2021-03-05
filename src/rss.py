@@ -162,27 +162,30 @@ def rss_trace_link(link: str) -> str:
     soup = bs4.BeautifulSoup(response.text, "html.parser")
 
     if tld == "finanznachrichten.de":
-        appetizer = soup.find("div", {"id": "artikelTextPuffer"})
+        content = soup.find("div", {"id": "artikelTextPuffer"})
+        if content is None:
+            errmsg = f"Incomplete handler for tld '{tld}' (link: {link})."
+            logging.error(errmsg)
+            raise NotImplementedError(errmsg)
 
-        # Page shows only embedded article preview. Track down external news id, an 8 digit number hidden inside
-        # the value of the 'onclick' property of a 'span' tag. The ID is then used to retrieve the redirection target.
-        # Example: '<span onclick="FN.artikelKomplettID('0', 52172551) ...'"
-        if appetizer is not None:
-            onclick_span = appetizer.find("span", {"onclick": True})
-            if onclick_span is not None:
-                onclick = onclick_span["onclick"]
-                news_id = re.findall(r"\d{8}", onclick)[0]
-                redirect = requests.get(f"https://www.finanznachrichten.de/ext/nachricht-komplett-{news_id}-0.htm")
-                destination = redirect.url
-                return destination
-            else:
+        onclick_span = content.find("span", {"onclick": True})
+        if onclick_span is None:
+            # Page shows full content. Nothing to do.
+            return link
+        else:
+            # Page shows only embedded article preview. Track down external news id, an 8 digit number hidden inside
+            # the value of the 'onclick' property of a 'span' tag. The ID is then used to retrieve the redirection target.
+            # Example: '<span onclick="FN.artikelKomplettID('0', 52172551) ...'"
+            onclick = onclick_span["onclick"]
+            matches = re.findall(r"\d{8}", onclick)
+            if len(matches) == 0:
                 errmsg = f"Incomplete handler for tld '{tld}' (link: {link})."
                 logging.error(errmsg)
                 raise NotImplementedError(errmsg)
-
-        # Page shows full content. Nothing to do.
-        else:
-            return link
+            news_id = matches[0]
+            redirect = requests.get(f"https://www.finanznachrichten.de/ext/nachricht-komplett-{news_id}-0.htm")
+            destination = redirect.url
+            return destination
     else:
         errmsg = f"Missing handler for tld '{tld}' (link: {link})."
         logging.error(errmsg)
@@ -602,7 +605,8 @@ def cleanup_by_tld(html, tld) -> str:
 
 if __name__ == "__main__":
     #urls = ["https://lukesmith.xyz/rss.xml", "https://www.finanznachrichten.de/rss-nachrichten-meistgelesen"]
-    rss_trace_link("https://www.finanznachrichten.de/nachrichten-2021-03/52172551-chart-check-itm-power-diese-marke-muss-heute-halten-124.htm")
+    # rss_trace_link("https://www.finanznachrichten.de/nachrichten-2021-03/52172551-chart-check-itm-power-diese-marke-muss-heute-halten-124.htm")
+    rss_trace_link("https://www.finanznachrichten.de/nachrichten-2021-03/52158803-opening-bell-tripadvisor-alibaba-bilibili-johnson-johnson-plug-paypal-fuelcell-tesla-nio-398.htm")
     # tags = {"link": "lelink", "guid": "rss_guid", "title": "rss_title"}
     # keys = ["rss_guid", "rss_title"]
     # print(feeds_to_dataframes(urls, tags=tags).to_csv())

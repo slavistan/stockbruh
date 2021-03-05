@@ -4,6 +4,10 @@ import sqlite3
 from pathlib import Path
 
 
+# Realistic user agent to use for requests
+USERAGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4340.112 Safari/537.36"
+
+
 def create_db(dbpath, schemafile=None):
     """Create database and execute SQL instructions from file.
 

@@ -78,6 +78,8 @@ file_formatter = logging.Formatter('[%(levelname)s] ⌚ %(asctime)s %(funcName)s
 logger_file.setFormatter(file_formatter)
 logger_file.setLevel(logging.DEBUG)
 # FIXME: Terminal logger uses file formatter :(
+# FIXME: silence stupid logging output of tldextract
+# TODO: Use own logger for __name__
 terminal_formatter = logging.Formatter('[%(levelname)s] %(funcName)s: %(message)s')
 logger_terminal = logging.StreamHandler()
 logger_terminal.setFormatter(file_formatter)
@@ -144,7 +146,8 @@ elif args.command == "rss-download-html":
         logging.info(f"Downloading raw HTML of RSS item {ii}/{len(records)}.")
         guid, url = record[0], record[1]
         try:
-            reply = requests.get(url, timeout=3)
+            destination_url = rss.rss_trace_link(url)  # 
+            reply = requests.get(destination_url, headers={'User-Agent': util.USERAGENT}, timeout=3)
             reply.raise_for_status()  # throw if 400 ≤ ret_code ≤ 600
             html = reply.text
             conn.execute("INSERT INTO html (rss_guid, rss_link, html) VALUES (?, ?, ?)", (guid, url, html))

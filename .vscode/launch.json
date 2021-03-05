@@ -5,41 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Mode noParam",
+            "name": "Debug current file",
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "console": "integratedTerminal",
         },
         {
-            "name": "InitialLoad(1)",
+            "name": "Attach",
             "type": "python",
-            "request": "launch",
-            "program": "./check_sentiment.py",
-            "console": "integratedTerminal",
-            "args": [
-                "1"
-            ]
-        },
-        {
-            "name": "Cleanup(2)",
-            "type": "python",
-            "request": "launch",
-            "program": "./check_sentiment.py",
-            "console": "integratedTerminal",
-            "args": [
-                "2"
-            ]
-        },
-        {
-            "name": "Daily price update(5)",
-            "type": "python",
-            "request": "launch",
-            "program": "./check_sentiment.py",
-            "console": "integratedTerminal",
-            "args": [
-                "5"
-            ]
+            "request": "attach",
+            "host": "localhost",
+            "port": 5678
         }
     ],
 }

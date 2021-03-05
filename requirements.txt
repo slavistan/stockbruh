@@ -1,1 +1,5 @@
 tdlextract>=3.1.0
+pytest>=6.2.2
+requests>=2.22.0
+beautifulsoup4>=4.8.2
+pandas>=1.2.2

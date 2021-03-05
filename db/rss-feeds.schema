@@ -10,7 +10,7 @@ CREATE TABLE items (
 CREATE TABLE html (
     rss_guid TEXT,
     rss_link TEXT,
-    html TEXT,
+    html TEXT, -- raw HTML of 'rss_link'
     PRIMARY KEY (rss_guid, rss_link)
 );
 
