@@ -7,6 +7,13 @@ CREATE TABLE items (
     PRIMARY KEY (rss_guid, rss_link)
 );
 
+CREATE TABLE html (
+    rss_guid TEXT,
+    rss_link TEXT,
+    html TEXT,
+    PRIMARY KEY (rss_guid, rss_link)
+);
+
 CREATE TABLE progress (
     rss_guid TEXT,
     rss_link TEXT,
