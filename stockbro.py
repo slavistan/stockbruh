@@ -128,14 +128,17 @@ elif args.command == "rss-extract-fulltext":
     conn_catalog.commit()
     conn_catalog.close()
 elif args.command == "rss-download-html":
-    # Create accessed databases if necessary
+    # Set up database and connection
     util.create_db(cfg["project"]["rss-feedsdb-path"], cfg["project"]["rss-feedsdb-schema"])
-
     conn = sqlite3.connect(cfg["project"]["rss-feedsdb-path"])
+
+    # Retrieve all records whose raw html is missing
     query_join = "SELECT items.rss_guid, items.rss_link FROM " \
         "items LEFT JOIN html USING (rss_guid, rss_link) " \
         "WHERE (html.html IS NULL)"
     records = conn.execute(query_join).fetchall()
+
+    # For each record attempt to download the raw html and write it to the database
     successful = 0  # number of successful downloads
     for ii, record in enumerate(records, 1):
         logging.info(f"Downloading raw HTML of RSS item {ii}/{len(records)}.")
@@ -152,6 +155,7 @@ elif args.command == "rss-download-html":
             logging.error(f"sqlite3 error while trying to store '{url}': {e}")
         except Exception as e:
             logging.error(f"Miscellaneous error while trying to store '{url}': {e}")
+
     logging.info(f"Successfully downloaded the raw html of {successful}/{len(records)} RSS items.")
     conn.commit()
     conn.close()
