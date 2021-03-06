@@ -11,6 +11,7 @@ def test_rss_trace_link():
     dest = link
     assert rss.rss_trace_link(link) == dest
 
+    # Direct content
     link = "https://www.finanznachrichten.de/nachrichten-2021-03/52206697-curevac-neues-kursziel-aktiviert-441.htm"
     dest = "https://www.start-trading.de/2021/03/05/curevac-neues-kursziel-aktiviert/"
     assert rss.rss_trace_link(link) == dest
