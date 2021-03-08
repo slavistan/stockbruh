@@ -63,12 +63,12 @@ subparsers = parser.add_subparsers(help="command help", dest="command")
 parser_fetch_rss_feeds = subparsers.add_parser("rss-fetch", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 parser_download_html = subparsers.add_parser("rss-download-html", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser_download_html.add_argument("-m", "--maxitems", type=int, default=128,  # FIXME: enforce nonneg integers
+parser_download_html.add_argument("-m", "--maxitems", type=int, default=32,  # FIXME: enforce nonneg integers
                                   help="Stop after given number of items have been processed. Used to chunk up "
                                        "workload into batches of predictable duration.")
 
 parser_extract_fulltext = subparsers.add_parser("rss-extract-fulltext", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser_extract_fulltext.add_argument("-m", "--maxitems", type=int, default=128,  # FIXME: enforce nonneg integers
+parser_extract_fulltext.add_argument("-m", "--maxitems", type=int, default=32,  # FIXME: enforce nonneg integers
                                      help="Stop after given number of items have been processed. Used to chunk up "
                                           "workload into batches of predictable duration.")
 
@@ -79,7 +79,7 @@ cfg.read("setup.cfg")
 ## Logging configuration.
 #
 # All logging output including that from imported modules is saved to file at
-# DEBUG-level verbosity.  Additionally, logging output of this project's own
+# DEBUG-level verbosity. Additionally, logging output of this project's own
 # modules is sent to console. The console output's verbosity can be adjusted
 # via command-line flags (-v / -q).
 
@@ -133,17 +133,19 @@ elif args.command == "rss-extract-fulltext":
     #     "items LEFT JOIN progress ON (items.rss_guid = progress.rss_guid AND items.rss_link = progress.rss_link) " \
     #     "WHERE (can_delete IS NULL OR can_delete != 1)"
     query_join = """
-        SELECT rss_guid, rss_link, rss_pubdate, rss_title, rss_description, dest_url, html from
+        SELECT rss_guid, rss_link, rss_pubdate, rss_title, rss_description, dest_url, html FROM
             (
                 SELECT rss_guid, rss_link, rss_pubdate, rss_title, rss_description FROM items LEFT JOIN progress
                     USING(rss_guid, rss_link) WHERE progress.can_delete IS NULL
             ) LEFT JOIN html USING(rss_guid, rss_link) WHERE html IS NOT NULL
         """
-    for record in conn_feeds.execute(query_join).fetchmany(args.maxitems):
-        link = record[1]
-        title = record[3]
-        description = record[4]
-        # fulltext = rss.extract_fulltext(html, url)
+    records = conn_feeds.execute(query_join).fetchmany(args.maxitems)
+    for record in records:
+        rss_guid, rss_link, pubdate = record[0], record[1], record[2]
+        title, description = record[3], record[4]
+        url, html = record[5], record[6]
+
+        fulltext = rss.extract_fulltext(html, url)
         # CONTINUEHERE
         #  1. copy: rss-feeds::items::rss_link -> rss-catalog::items::link
         #           rss_pubdate -> pubdate
@@ -156,6 +158,7 @@ elif args.command == "rss-extract-fulltext":
     conn_feeds.close()
     conn_catalog.commit()
     conn_catalog.close()
+
 elif args.command == "rss-download-html":
     # Set up database and connection
     util.create_db(cfg["project"]["rss-feedsdb-path"], cfg["project"]["rss-feedsdb-schema"])
