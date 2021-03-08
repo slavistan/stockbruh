@@ -1,5 +1,7 @@
 """RSS utility."""
 import logging
+log = logging.getLogger("stockbro")
+
 import re
 import sqlite3
 from pathlib import Path
@@ -62,7 +64,7 @@ def feeds_to_dataframe(urls: list, tags: dict = DEFAULT_RSS_FIELD_NAMES) -> pd.D
                         record[field_name] = tag.text if tag is not None else ""
                     df = df.append(record, ignore_index=True)
         else:
-            logging.error(f"Download of RSS feed {url} failed.")
+            log.error(f"Download of RSS feed {url} failed.")
     return df
 
 
@@ -165,7 +167,7 @@ def rss_trace_link(link: str) -> str:
         content = soup.find("div", {"id": "artikelTextPuffer"})
         if content is None:
             errmsg = f"Incomplete handler for tld '{tld}' (link: {link})."
-            logging.error(errmsg)
+            log.error(errmsg)
             raise NotImplementedError(errmsg)
 
         onclick_span = content.find("span", {"onclick": True})
@@ -180,7 +182,7 @@ def rss_trace_link(link: str) -> str:
             matches = re.findall(r"\d{8}", onclick)
             if len(matches) == 0:
                 errmsg = f"Incomplete handler for tld '{tld}' (link: {link})."
-                logging.error(errmsg)
+                log.error(errmsg)
                 raise NotImplementedError(errmsg)
             news_id = matches[0]
             redirect = requests.get(f"https://www.finanznachrichten.de/ext/nachricht-komplett-{news_id}-0.htm")
@@ -188,7 +190,7 @@ def rss_trace_link(link: str) -> str:
             return destination
     else:
         errmsg = f"Missing handler for tld '{tld}' (link: {link})."
-        logging.error(errmsg)
+        log.error(errmsg)
         raise NotImplementedError(errmsg)
 
 

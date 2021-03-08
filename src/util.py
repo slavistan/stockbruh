@@ -1,5 +1,9 @@
 """Utility functions."""
+import argparse
+
 import logging
+log = logging.getLogger("stockbro")
+
 import sqlite3
 from pathlib import Path
 
@@ -29,20 +33,20 @@ def create_db(dbpath, schemafile=None):
     """
     dbpath = Path(dbpath)
     if dbpath.is_file():
-        logging.debug(f"File '{dbpath}' exists. Nothing to do.")
+        log.debug(f"File '{dbpath}' exists. Nothing to do.")
         return
 
     # Create directories and database
     dbpath.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(dbpath))
-    logging.debug(f"Created database '{str(dbpath)}'.")
+    log.debug(f"Created database '{str(dbpath)}'.")
 
     # Execute SQL from file
     if schemafile is not None:
         with open(schemafile) as f:
             cur = conn.cursor()
             cur.executescript(f.read())
-            logging.debug(f"Executed SQL in '{schemafile}'.")
+            log.debug(f"Executed SQL in '{schemafile}'.")
     conn.commit()
     conn.close()
 

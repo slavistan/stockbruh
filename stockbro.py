@@ -52,55 +52,60 @@ def rss_fetch() -> int:
 #
 # Parse command-line arguments
 #
-parser = argparse.ArgumentParser()
-parser.add_argument("-v", "--verbosity", action="count", help="Enable verbose output", default=0)
+parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser_verbosity_meg = parser.add_mutually_exclusive_group()
+parser_verbosity_meg.add_argument("-v", "--verbose", action="store_true", default=False,
+                                  help="Increase logging verbosity. Lowers debug level from INFO to DEBUG.")
+parser_verbosity_meg.add_argument("-q", "--quiet", action="store_true", default=False,
+                                  help="Decreases logging verbosity. Increases debug level from INFO to WARNING.")
 subparsers = parser.add_subparsers(help="command help", dest="command")
 
-# configure history subcommand
-parser_fetch_rss_feeds = subparsers.add_parser("rss-fetch")
-parser_fetch_rss_feeds = subparsers.add_parser("rss-download-html")
-parser_fetch_rss_feeds = subparsers.add_parser("rss-extract-fulltext")
+# configure subcommand
+parser_fetch_rss_feeds = subparsers.add_parser("rss-fetch", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+parser_download_html = subparsers.add_parser("rss-download-html", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser_download_html.add_argument("-m", "--maxitems", type=int, default=128,  #FIXME: enfore nonneg integers
+                                  help="Stop after given number of items have been processed. Used to chunk up "
+                                       "workload into batches of predictable duration.")
+
+parser_extract_fulltext = subparsers.add_parser("rss-extract-fulltext", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 args = parser.parse_args()
+cfg = configparser.ConfigParser(inline_comment_prefixes=";")
+cfg.read("setup.cfg")
 
 # Configure logging. Affects code in all child modules. Logs are always
 # stored at full maximum information in the logfile, but the log level may
 # be selectively selected for terminal output.
-cfg = configparser.ConfigParser(inline_comment_prefixes=";")
-cfg.read("setup.cfg")
 logdir = Path(cfg["project"]["logdir"])
 if not logdir.is_dir():
     logdir.mkdir(parents=True, exist_ok=True)
 logfilename = str(datetime.now().strftime(r"%Y-%m-%d")) + ".log"
 logpath = str(logdir / logfilename)  # log-directory/YYYY-MM-DD.log; one logfile per day
-logger_file = logging.FileHandler(logpath)
-file_formatter = logging.Formatter('[%(levelname)s] ⌚ %(asctime)s %(funcName)s: %(message)s')
-logger_file.setFormatter(file_formatter)
-logger_file.setLevel(logging.DEBUG)
-# FIXME: Terminal logger uses file formatter :(
-# FIXME: silence stupid logging output of tldextract
-# TODO: Use own logger for __name__
-terminal_formatter = logging.Formatter('[%(levelname)s] %(funcName)s: %(message)s')
-logger_terminal = logging.StreamHandler()
-logger_terminal.setFormatter(file_formatter)
-if args.verbosity == 0:
-    logger_terminal.setLevel(logging.WARNING)
-elif args.verbosity == 1:
-    logger_terminal.setLevel(logging.INFO)
-else:
-    logger_terminal.setLevel(logging.DEBUG)
-root_logger = logging.getLogger()
-root_logger.addHandler(logger_file)
-root_logger.addHandler(logger_terminal)
-root_logger.setLevel(logging.DEBUG)
 
-#
-# Run selected command
-#
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.DEBUG)
+fh = logging.FileHandler(logpath)
+fh.setFormatter(logging.Formatter('[%(levelname)s] ⌚ %(asctime)s - %(name)s - %(funcName)s: %(message)s'))
+root_logger.addHandler(fh)
+
+log = logging.getLogger("stockbro")
+if args.quiet:
+    log.setLevel(logging.WARNING)
+elif args.verbose:
+    log.setLevel(logging.DEBUG)
+else:
+    log.setLevel(logging.INFO)
+ch = logging.StreamHandler()
+ch.setFormatter(logging.Formatter('[%(levelname)s] %(funcName)s: %(message)s'))
+log.addHandler(ch)
+
+
+# Dispatch command
 if args.command == "rss-fetch":
     # TOOD: Remove rss_fetch() and place implementation here
     rows_created = rss_fetch()
-    logging.info(f"Generated {rows_created} new RSS record(s).")
+    log.info(f"Generated {rows_created} new RSS record(s).")
 
 elif args.command == "rss-extract-fulltext":
     # Create accessed databases if necessary
@@ -138,27 +143,27 @@ elif args.command == "rss-download-html":
     query_join = "SELECT items.rss_guid, items.rss_link FROM " \
         "items LEFT JOIN html USING (rss_guid, rss_link) " \
         "WHERE (html.html IS NULL)"
-    records = conn.execute(query_join).fetchall()
+    records = conn.execute(query_join).fetchmany(args.maxitems)
 
     # For each record attempt to download the raw html and write it to the database
     successful = 0  # number of successful downloads
     for ii, record in enumerate(records, 1):
-        logging.info(f"Downloading raw HTML of RSS item {ii}/{len(records)}.")
+        log.info(f"Downloading raw HTML of RSS item {ii}/{len(records)}.")
         guid, url = record[0], record[1]
         try:
-            destination_url = rss.rss_trace_link(url)  # track down destination url, not the appetizer
-            reply = requests.get(destination_url, headers={'User-Agent': util.USERAGENT}, timeout=3)
+            dest_url = rss.rss_trace_link(url)  # track down destination url, not the appetizer
+            reply = requests.get(dest_url, headers={'User-Agent': util.USERAGENT}, timeout=3)
             reply.raise_for_status()  # throw if 400 ≤ ret_code ≤ 600
             html = reply.text
-            conn.execute("INSERT INTO html (rss_guid, rss_link, html) VALUES (?, ?, ?)", (guid, url, html))
+            conn.execute("INSERT INTO html (rss_guid, rss_link, dest_url, html) VALUES (?, ?, ?, ?)", (guid, url, dest_url, html))
             successful = successful + 1
         except requests.exceptions.RequestException as e:  # catches all of requests' exceptions
-            logging.error(f"Error for requests.get('{url}'): {e}")
+            log.error(f"Error for requests.get('{url}'): {e}")
         except sqlite3.Error as e:  # catches all of sqlite3's exceptions
-            logging.error(f"sqlite3 error while trying to store '{url}': {e}")
+            log.error(f"sqlite3 error while trying to store '{url}': {e}")
         except Exception as e:
-            logging.error(f"Miscellaneous error while trying to store '{url}': {e}")
+            log.error(f"Miscellaneous error while trying to store '{url}': {e}")
 
-    logging.info(f"Successfully downloaded the raw html of {successful}/{len(records)} RSS items.")
+    log.info(f"Successfully downloaded the raw html of {successful}/{len(records)} RSS items.")
     conn.commit()
     conn.close()

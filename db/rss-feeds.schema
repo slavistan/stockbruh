@@ -10,7 +10,8 @@ CREATE TABLE items (
 CREATE TABLE html (
     rss_guid TEXT,
     rss_link TEXT,
-    html TEXT, -- raw HTML of 'rss_link'
+    dest_url TEXT, -- URL of resource the RSS link refers to
+    html TEXT,     -- raw HTML of url
     PRIMARY KEY (rss_guid, rss_link)
 );
 
