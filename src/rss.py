@@ -216,6 +216,60 @@ def extract_multi_tag(html, tag, attribute, value, cut=0):
     return text
 
 
+def extract_fulltext(url, html=None):
+    """Pull out content fulltext according the URL's hardcoded extraction scheme.
+
+    Raw HTML will be downloaded from the URL if *html* is None.
+
+    Parameters
+    ----------
+    url: str
+        URL of the article or resource from which to extract the content
+        fulltext. The URL is used to chose the appropriate extraction scheme
+        and, optionally, to download the raw HTML.
+
+    html: str (optional)
+        Raw HTML from which to extract the content fulltext.
+    """
+    if html is None:
+        response = requests.get(url)
+        response.raise_for_status()
+        html = response.text
+    soup = bs4.BeautifulSoup(html, "html.parser")
+    extract = tldextract.extract(url.lower())
+    tld = f"{extract.domain}.{extract.suffix}"
+    result = ""
+
+    if tld == "deraktionaer.de":
+        # Expect exactly one <div id="article-body"> ... </div>
+        divs = soup.find_all("div", {"id": "article-body"})
+        if divs is None or len(divs) != 1:
+            errmsg = f"Incomplete handler for tld '{tld}' (url: {url})."
+            log.error(errmsg)
+            raise NotImplementedError(errmsg)
+
+        # Expect at least one paragraph
+        paragraphs = divs[0].find_all("p")
+        if paragraphs is None or len(paragraphs) == 0:
+            errmsg = f"Incomplete handler for tld '{tld}' (url: {url})."
+            log.error(errmsg)
+            raise NotImplementedError(errmsg)
+
+        for p in paragraphs:
+            # Stop parsing at conflicts of interest
+            if p.text.startswith("Hinweis auf mögliche Interessenskonflikte"):
+                break
+            result += f"{p.text}\n\n"
+        result = result.rstrip("\n")  # remove trailing newline
+
+    else:
+        errmsg = f"Missing handler for tld '{tld}' (url: {url})."
+        log.error(errmsg)
+        raise NotImplementedError(errmsg)
+
+    return result
+
+
 def cleanup_by_tld(html, tld) -> str:
     html = bs4.BeautifulSoup(html, 'html.parser')
     text = ""
@@ -606,13 +660,5 @@ def cleanup_by_tld(html, tld) -> str:
 
 
 if __name__ == "__main__":
-    #urls = ["https://lukesmith.xyz/rss.xml", "https://www.finanznachrichten.de/rss-nachrichten-meistgelesen"]
-    # rss_trace_link("https://www.finanznachrichten.de/nachrichten-2021-03/52172551-chart-check-itm-power-diese-marke-muss-heute-halten-124.htm")
-    rss_trace_link("https://www.finanznachrichten.de/nachrichten-2021-03/52158803-opening-bell-tripadvisor-alibaba-bilibili-johnson-johnson-plug-paypal-fuelcell-tesla-nio-398.htm")
-    # tags = {"link": "lelink", "guid": "rss_guid", "title": "rss_title"}
-    # keys = ["rss_guid", "rss_title"]
-    # print(feeds_to_dataframes(urls, tags=tags).to_csv())
-    # archive_rss_feed(urls, "db/rss.db", "items", tags, keys)
-    # feeds_to_database(urls, "db/foo.db", tablename="items",
-    #                   tags={"link": "rss_link", "pubDate": "rss_pubdate", "title": "rss_title"},
-    #                       keys=["rss_link", "rss_title"])
+    x = extract_fulltext("https://www.deraktionaer.de/artikel/aktien/nach-elon-musk-joe-biden-bringt-krasses-upside-und-milliarden-impuls-fuer-bitcoin-und-ethereum-20226962.html?feed=TRtvHrugxEKV2n-qR2P-ag")
+    print(x)
