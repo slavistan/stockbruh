@@ -18,6 +18,6 @@ CREATE TABLE html (
 CREATE TABLE progress (
     rss_guid TEXT,
     rss_link TEXT,
-    can_delete INTEGER,
+    can_delete INTEGER, -- Set after fulltext extraction
     PRIMARY KEY (rss_guid, rss_link)
 );
