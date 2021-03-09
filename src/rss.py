@@ -271,18 +271,20 @@ def extract_fulltext(url, html=None):
 
             # Nested inside a <p> are the content paragraphs
             paragraph = divs[0].find("p")
-            for tag in [t for t in paragraph.p.next_siblings if t.name is not None]:
-                # skip empty paragraphs
+            for tag in [t for t in paragraph.children if t.name is not None]:
+                # skip empty paragraphs, separator lines and short paragraphs
                 text = tag.text.rstrip()
-                if len(text) == 0:
+                if len(text) == 0 or text.startswith("___") or len(text.split(" ")) < 10:
                     continue
 
-                # abort when banner is reached
+                # abort when banner or conflict of interests is reached 
                 banner = tag.find("div", {"class": "banner_content"})
-                if banner is not None:
+                if banner is not None or text.startswith("Hinweis auf bestehende Interessen"):
                     break
 
                 if tag.name == "p":
+                    # Remove newlines and tabs. Treat as proper paragraph.
+                    text = " ".join(text.split())
                     result += f"{text}\n\n"
             result = result.rstrip("\n")
 
