@@ -31,3 +31,7 @@ def test_all():
     for name in names:
         url, html, fulltext = read_test_parameters(name)
         assert fulltext == rss.extract_fulltext(url, html)
+
+
+def testfoo():
+    assert True

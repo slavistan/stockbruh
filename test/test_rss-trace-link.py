@@ -1,6 +1,7 @@
 from src import rss
 
 def test_rss_trace_link():
+    """Test fooo."""
     # Appetizer preview
     link = "https://www.finanznachrichten.de/nachrichten-2021-03/52172551-chart-check-itm-power-diese-marke-muss-heute-halten-124.htm"
     dest = "https://www.deraktionaer.de/artikel/aktien/chart-check-itm-power-diese-marke-muss-heute-halten-20226666.html?feed=TRtvHrugxEKV2n-qR2P-ag"

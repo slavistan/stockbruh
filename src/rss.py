@@ -2,6 +2,7 @@
 import logging
 log = logging.getLogger("stockbro")
 
+import sys
 import re
 import sqlite3
 from pathlib import Path
@@ -240,32 +241,60 @@ def extract_fulltext(url, html=None):
     tld = f"{extract.domain}.{extract.suffix}"
     result = ""
 
-    if tld == "deraktionaer.de":
-        # Expect exactly one <div id="article-body"> ... </div>
-        divs = soup.find_all("div", {"id": "article-body"})
-        if divs is None or len(divs) != 1:
-            errmsg = f"Incomplete handler for tld '{tld}' (url: {url})."
-            log.error(errmsg)
-            raise NotImplementedError(errmsg)
+    ## Dispatch to corresponding extraction scheme.
+    #
+    #  We wrap the logic into a try/except block
+    # to avoid code repetition. All missing or faulty implementation raises an exception, which
+    # is then caught to generate an error log and reraised.
 
-        # Expect at least one paragraph
-        paragraphs = divs[0].find_all("p")
-        if paragraphs is None or len(paragraphs) == 0:
-            errmsg = f"Incomplete handler for tld '{tld}' (url: {url})."
-            log.error(errmsg)
-            raise NotImplementedError(errmsg)
+    try:
+        if tld == "deraktionaer.de":
+            # Expect exactly one <div id="article-body"> ... </div>
+            divs = soup.find_all("div", {"id": "article-body"})
+            if divs is None or len(divs) != 1: raise NotImplementedError()
 
-        for p in paragraphs:
-            # Stop parsing at conflicts of interest
-            if p.text.startswith("Hinweis auf mögliche Interessenskonflikte"):
-                break
-            result += f"{p.text}\n\n"
-        result = result.rstrip("\n")  # remove trailing newline
+            # Expect at least one paragraph
+            paragraphs = divs[0].find_all("p")
+            if paragraphs is None or len(paragraphs) == 0: raise NotImplementedError()
 
-    else:
-        errmsg = f"Missing handler for tld '{tld}' (url: {url})."
+            for p in paragraphs:
+                # Stop parsing at conflicts of interest
+                if p.text.startswith("Hinweis auf mögliche Interessenskonflikte"):
+                    break
+                result += f"{p.text}\n\n"
+            result = result.rstrip("\n")
+
+        elif tld == "stock-world.de":
+            # Expect exactly one <div class="w100 ibox_rss"> ... </div>
+            divs = soup.find_all("div", {"class": "w100 ibox_rss"})
+            if divs is None or len(divs) != 1: raise NotImplementedError()
+
+            # Nested inside a <p> are the content paragraphs
+            paragraph = divs[0].find("p")
+            for tag in [t for t in paragraph.p.next_siblings if t.name is not None]:
+                # skip empty paragraphs
+                text = tag.text.rstrip()
+                if len(text) == 0:
+                    continue
+
+                # abort when banner is reached
+                banner = tag.find("div", {"class": "banner_content"})
+                if banner is not None:
+                    break
+
+                if tag.name == "p":
+                    result += f"{text}\n\n"
+            result = result.rstrip("\n")
+
+        else:
+            raise NotImplementedError()
+
+    except NotImplementedError as e:
+        errmsg = f"Incomplete handler for tld '{tld}' (url: {url})."
         log.error(errmsg)
         raise NotImplementedError(errmsg)
+    except Exception as e:
+        raise
 
     return result
 
@@ -660,5 +689,5 @@ def cleanup_by_tld(html, tld) -> str:
 
 
 if __name__ == "__main__":
-    x = extract_fulltext("https://www.deraktionaer.de/artikel/aktien/nach-elon-musk-joe-biden-bringt-krasses-upside-und-milliarden-impuls-fuer-bitcoin-und-ethereum-20226962.html?feed=TRtvHrugxEKV2n-qR2P-ag")
+    x = extract_fulltext(url=sys.argv[1])
     print(x)
