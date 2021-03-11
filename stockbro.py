@@ -129,9 +129,6 @@ elif args.command == "rss-extract-fulltext":
 
     conn_feeds = sqlite3.connect(cfg["project"]["rss-feedsdb-path"])
     conn_catalog = sqlite3.connect(cfg["project"]["rss-catalogdb-path"])
-    # query_join = "SELECT items.rss_guid, items.rss_link, rss_pubdate, rss_title, rss_description FROM " \
-    #     "items LEFT JOIN progress ON (items.rss_guid = progress.rss_guid AND items.rss_link = progress.rss_link) " \
-    #     "WHERE (can_delete IS NULL OR can_delete != 1)"
     query_join = """
         SELECT rss_guid, rss_link, rss_pubdate, rss_title, rss_description, dest_url, html FROM
             (
@@ -140,24 +137,36 @@ elif args.command == "rss-extract-fulltext":
             ) LEFT JOIN html USING(rss_guid, rss_link) WHERE html IS NOT NULL
         """
     records = conn_feeds.execute(query_join).fetchmany(args.maxitems)
-    for record in records:
+    successful = 0  # number of successful downloads
+    for ii, record in enumerate(records, 1):
         rss_guid, rss_link, pubdate = record[0], record[1], record[2]
         title, description = record[3], record[4]
-        url, html = record[5], record[6]
+        dest_url, html = record[5], record[6]
 
-        fulltext = rss.extract_fulltext(html, url)
-        # CONTINUEHERE
-        #  1. copy: rss-feeds::items::rss_link -> rss-catalog::items::link
-        #           rss_pubdate -> pubdate
-        #           rss_description -> description
-        #  2. pubdate zu standardisiertem Format konvertieren -> pubdate
-        #  3. volltext extrahieren -> fulltext
-        #  4. rss-feeds::progress::can_delete = 1
+        try:
+            # Extract fulltext, convert date to standard format and store to 'rss-catalog.db'
+            # TODO: Date conversion is missing
+            fulltext = rss.extract_fulltext(dest_url, html)
+            date = pubdate
+            conn_catalog.execute("INSERT INTO texts VALUES (?, ?, ?, ?, ?)",
+                                 (dest_url, date, title, description, fulltext))
+
+            # Mark as done in 'rss-feeds.db'. Note that the 'progress' table is
+            # empty by default so that we may simple insert values instead of
+            # updating them.
+            conn_feeds.execute("INSERT INTO progress VALUES (?, ?, ?)",
+                               (rss_guid, rss_link, 1))
+
+            successful += 1
+        except Exception as e:
+            # Exceptions are raised for urls whose extraction scheme is missing or incomplete
+            log.error(e)
 
     conn_feeds.commit()
     conn_feeds.close()
     conn_catalog.commit()
     conn_catalog.close()
+    log.info(f"Successfully downloaded the raw html of {successful}/{len(records)} RSS items.")
 
 elif args.command == "rss-download-html":
     # Set up database and connection
@@ -174,20 +183,20 @@ elif args.command == "rss-download-html":
     successful = 0  # number of successful downloads
     for ii, record in enumerate(records, 1):
         log.info(f"Downloading raw HTML of RSS item {ii}/{len(records)}.")
-        guid, url = record[0], record[1]
+        guid, dest_url = record[0], record[1]
         try:
-            dest_url = rss.rss_trace_link(url)  # track down destination url, not the appetizer
+            dest_url = rss.rss_trace_link(dest_url)  # track down destination url, not the appetizer
             reply = requests.get(dest_url, headers={'User-Agent': util.USERAGENT}, timeout=3)
             reply.raise_for_status()  # throw if 400 ≤ ret_code ≤ 600
             html = reply.text
-            conn.execute("INSERT INTO html (rss_guid, rss_link, dest_url, html) VALUES (?, ?, ?, ?)", (guid, url, dest_url, html))
-            successful = successful + 1
+            conn.execute("INSERT INTO html (rss_guid, rss_link, dest_url, html) VALUES (?, ?, ?, ?)", (guid, dest_url, dest_url, html))
+            successful += 1
         except requests.exceptions.RequestException as e:  # catches all of requests' exceptions
-            log.error(f"Error for requests.get('{url}'): {e}")
+            log.error(f"Error for requests.get('{udest_urlrl}'): {e}")
         except sqlite3.Error as e:  # catches all of sqlite3's exceptions
-            log.error(f"sqlite3 error while trying to store '{url}': {e}")
+            log.error(f"sqlite3 error while trying to store '{udest_urlrl}': {e}")
         except Exception as e:
-            log.error(f"Miscellaneous error while trying to store '{url}': {e}")
+            log.error(f"Miscellaneous error while trying to store '{udest_urlrl}': {e}")
 
     log.info(f"Successfully downloaded the raw html of {successful}/{len(records)} RSS items.")
     conn.commit()

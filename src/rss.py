@@ -271,13 +271,13 @@ def extract_fulltext(url, html=None):
 
             # Nested inside a <p> are the content paragraphs
             paragraph = divs[0].find("p")
-            for tag in [t for t in paragraph.children if t.name is not None]:
+            for tag in [t for t in paragraph.children if t.name is not None]:  #FIXME: Why are there here tags without name?
                 # skip empty paragraphs, separator lines and short paragraphs
                 text = tag.text.rstrip()
                 if len(text) == 0 or text.startswith("___") or len(text.split(" ")) < 10:
                     continue
 
-                # abort when banner or conflict of interests is reached 
+                # abort when banner or conflict of interests is reached
                 banner = tag.find("div", {"class": "banner_content"})
                 if banner is not None or text.startswith("Hinweis auf bestehende Interessen"):
                     break
@@ -288,12 +288,30 @@ def extract_fulltext(url, html=None):
                     result += f"{text}\n\n"
             result = result.rstrip("\n")
 
+        elif tld == "4investors.de":
+            # Content stored in <article> tag
+            article = soup.find_all("article")
+            if len(article) != 1: raise NotImplementedError()
+
+            for tag in [t for t in article[0].children if t.name == "p"]:
+                # Skip date and author
+                if tag.text.find("- Autor:") != -1:
+                    continue
+
+                # End of article is always characterized by summary or stock data
+                end = tag.text.find("Wichtige charttechnische Daten")
+                if end == -1: raise NotImplementedError()
+                result += tag.text[:end]
+
+            # Remove ads
+            result = result.replace("Extrem günstig Aktien traden - Aktien-Sparpläne - die Top Depot-Anbieter", "")
+            result = result.rstrip("\n")
+
         else:
             raise NotImplementedError()
 
     except NotImplementedError as e:
         errmsg = f"Incomplete handler for tld '{tld}' (url: {url})."
-        log.error(errmsg)
         raise NotImplementedError(errmsg)
     except Exception as e:
         raise
