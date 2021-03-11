@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+
+
 """Main modules."""
 import argparse
 import configparser
