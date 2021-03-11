@@ -15,6 +15,8 @@ import requests
 
 import tldextract
 
+from src import util
+
 DEFAULT_RSS_FIELD_NAMES = {"link": "link", "guid": "guid", "pubDate": "pubDate",
                            "title": "title", "description": "description"}
 DEFAULT_RSS_DBTABLE_KEYS = ["guid", "link"]
@@ -54,7 +56,7 @@ def feeds_to_dataframe(urls: list, tags: dict = DEFAULT_RSS_FIELD_NAMES) -> pd.D
     """
     df = pd.DataFrame(columns=[val for val in tags.values()], dtype="string")
     for url in urls:
-        response = requests.get(url)
+        response = requests.get(url, timeout=3, headers={"User-Agent": util.USERAGENT})
         if response.status_code == 200:
             soup = bs4.BeautifulSoup(response.text, 'xml').find("rss")
             if soup is not None:
@@ -106,7 +108,7 @@ def feeds_to_database(urls: list, dbpath: str, tablename: str = "items", tags: d
 
         urls = ["https://www.finanznachrichten.de/rss-nachrichten-meistgelesen",
                 "https://www.finanznachrichten.de/rss-marktberichte"]
-        feeds_to_sqlite(urls, "db/foo.db", tablename="items",
+        feeds_to_database(urls, "db/foo.db", tablename="items",
                           tags={"link": "rss_link", "pubDate": "rss_pubdate", "title": "rss_title"},
                           keys=["rss_link", "rss_title"])
     """
@@ -709,5 +711,5 @@ def cleanup_by_tld(html, tld) -> str:
 
 
 if __name__ == "__main__":
-    x = extract_fulltext(url=sys.argv[1])
+    x = feeds_to_dataframe([sys.argv[1]])
     print(x)

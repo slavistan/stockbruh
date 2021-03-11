@@ -37,10 +37,16 @@ def rss_fetch() -> int:
     conn.close()
 
     # Store feeds to database
-    rss.feeds_to_database(urls, feedsdb_path, tablename="items",
-                          tags={"guid": "rss_guid", "link": "rss_link", "pubDate": "rss_pubdate",
-                                "title": "rss_title", "description": "rss_description"},
-                          keys=["rss_guid", "rss_link"])
+    for ii, url in enumerate(urls, 1):
+        log.info(f"Fetching items from RSS feed {ii}/{len(urls)}: {url}")
+        try:
+            rss.feeds_to_database([url], feedsdb_path, tablename="items",
+                                  tags={"guid": "rss_guid", "link": "rss_link", "pubDate": "rss_pubdate",
+                                        "title": "rss_title", "description": "rss_description"},
+                                  keys=["rss_guid", "rss_link"])
+        except Exception as e:
+            log.error(e)
+        ii += 1
 
     # Count rows in database table after insertion
     conn = sqlite3.connect(feedsdb_path)
