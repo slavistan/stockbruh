@@ -127,7 +127,6 @@ log.addHandler(ch)
 ## Command dispatch.
 
 if args.command == "rss-fetch":
-    # TOOD: Remove rss_fetch() and place implementation here
     rows_created = rss_fetch()
     log.info(f"Generated {rows_created} new RSS record(s).")
 

@@ -99,6 +99,11 @@ def feeds_to_database(urls: list, dbpath: str, tablename: str = "items", tags: d
         compound primary key. Must be specified if non-default *tags* are used.
         By default, the *link* and *guid* column are used as primary key.
 
+    Returns
+    -------
+    int
+        Total number of fetched items across all URLs.
+
     Examples
     -----------
     The following call will fetch the RSS tags *link*, *pubDate* and *title*,
@@ -136,6 +141,7 @@ def feeds_to_database(urls: list, dbpath: str, tablename: str = "items", tags: d
     conn.executemany(insert_instruction, list(df.itertuples(index=False, name=None)))
     conn.commit()
     conn.close()
+    return len(df)
 
 
 def rss_trace_link(link: str) -> str:
