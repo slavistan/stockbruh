@@ -1,0 +1,18 @@
+rss:
+  feedsdb-path: db/rss-feeds.db  # path to database
+  feedsdb-schema: db/rss-feeds.schema  # path to schema file
+  catalogdb-path: db/rss-catalog.db
+  catalogdb-schema: db/rss-catalog.schema
+  feeds:
+    - https://www.nasdaq.com/feed/rssoutbound
+    - https://finance.yahoo.com/news/rssindex
+    - http://www.nasdaqtrader.com/rss.aspx?feed=currentheadlines
+    - https://seekingalpha.com/feed.xml
+    - https://www.investing.com/rss/news.rss
+    - https://www.fool.co.uk/feed/
+    - https://www.moneycontrol.com/rss/latestnews.xml
+    - https://news.alphastreet.com/feed/
+    - https://stocksnewsfeed.com/feed/
+
+project:
+  logdir: log/  # output directory for logfiles
