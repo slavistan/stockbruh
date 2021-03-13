@@ -20,30 +20,28 @@ from src import util
 
 
 def init_args(argv: list) -> argparse.Namespace:
-    formatter_class = argparse.ArgumentDefaultsHelpFormatter
     """Parse command-line arguments and return populated Namespace object."""
+    # Use a default formatter which displays default values in help string.
+    formatter_class = argparse.ArgumentDefaultsHelpFormatter
+
     parser = argparse.ArgumentParser(formatter_class=formatter_class)
-    parser.add_argument("-l", "--loglevel", default="info", choices=["debug", "info", "warning", "error", "fatal"],
+    parser.add_argument("-l", "--loglevel", default="info", choices=["debug", "info", "warning", "error", "critical"],
                         help="Set minimum importance threshold for console logging output. Case insensitive.")
     subparsers = parser.add_subparsers(dest="command")
     rss = subparsers.add_parser("rss", formatter_class=formatter_class)
     rss_subparsers = rss.add_subparsers(dest="rss_command")
     rss_fetch = rss_subparsers.add_parser("fetch", formatter_class=formatter_class)
+    rss_fetch.add_argument("-m", "--maxitems", type=int, default=32,  # FIXME: enforce nonneg integers
+                           help="Stop after given number of items have been processed. Used to chunk up "
+                                "workload into batches of predictable duration.")
     rss_download = rss_subparsers.add_parser("download", formatter_class=formatter_class)
+    rss_download.add_argument("-m", "--maxitems", type=int, default=32,  # FIXME: enforce nonneg integers
+                              help="Stop after given number of items have been processed. Used to chunk up "
+                                   "workload into batches of predictable duration.")
     rss_extract = rss_subparsers.add_parser("extract", formatter_class=formatter_class)
-
-    # configure subcommand
-    parser_fetch_rss_feeds = subparsers.add_parser("rss-fetch", formatter_class=formatter_class)
-
-    parser_download_html = subparsers.add_parser("rss-download-html", formatter_class=formatter_class)
-    parser_download_html.add_argument("-m", "--maxitems", type=int, default=32,  # FIXME: enforce nonneg integers
-                                      help="Stop after given number of items have been processed. Used to chunk up "
-                                           "workload into batches of predictable duration.")
-
-    parser_extract_fulltext = subparsers.add_parser("rss-extract-fulltext", formatter_class=formatter_class)
-    parser_extract_fulltext.add_argument("-m", "--maxitems", type=int, default=32,  # FIXME: enforce nonneg integers
-                                         help="Stop after given number of items have been processed. Used to chunk up "
-                                              "workload into batches of predictable duration.")
+    rss_extract.add_argument("-m", "--maxitems", type=int, default=32,  # FIXME: enforce nonneg integers
+                             help="Stop after given number of items have been processed. Used to chunk up "
+                                  "workload into batches of predictable duration.")
 
     return parser.parse_args(argv)
 
@@ -73,6 +71,30 @@ def init_logging(logpath: pathlib.Path, level=logging.INFO):
         Verbosity of console logging. Logging to file always uses logging.DEBUG.
     """
 
+    class ConsoleFormatter(logging.Formatter):
+        """Logging formatter to add colors to terminal output."""
+
+        whitebold = "\x1b[0;37;1m"
+        greenbold = "\x1b[0;32;1m"
+        yellowbold = "\x1b[0;33;1;21m"
+        redbold = "\x1b[0;31;1;21m"
+        reset = "\x1b[0m"
+        level = "%(levelname).4s"
+        suffix = " %(asctime)s.%(msecs)03d %(filename)s:%(lineno)d %(message)s"
+
+        FORMATS = {
+            logging.DEBUG: whitebold + level + reset + suffix,
+            logging.INFO: greenbold + level + reset + suffix,
+            logging.WARNING: yellowbold + level + reset + suffix,
+            logging.ERROR: redbold + level + reset + suffix,
+            logging.CRITICAL: redbold + level + reset + suffix
+        }
+
+        def format(self, record):
+            log_fmt = self.FORMATS.get(record.levelno)
+            formatter = logging.Formatter(log_fmt, "%H:%M:%S")
+            return formatter.format(record)
+
     logpath.parent.mkdir(parents=True, exist_ok=True)
 
     # Root logger setup. Writes ALL logging output to file including logging
@@ -81,7 +103,9 @@ def init_logging(logpath: pathlib.Path, level=logging.INFO):
     root_logger.setLevel(logging.DEBUG)
     fh = logging.FileHandler(str(logpath))
     fh.setLevel(logging.DEBUG)
-    fh.setFormatter(logging.Formatter("[%(levelname)s] %(asctime)s - %(name)s - %(funcName)s: %(message)s"))
+    fh.setFormatter(logging.Formatter("%(levelname).4s %(asctime)s.%(msecs)03d "
+                                      "%(name)s@%(filename)s:%(lineno)d %(message)s",
+                                      "%Y/%m/%d %H:%M:%S"))
     root_logger.addHandler(fh)
 
     # Module-level logger. Writes this project's logging output to console.
@@ -89,7 +113,7 @@ def init_logging(logpath: pathlib.Path, level=logging.INFO):
     log.setLevel(logging.DEBUG)
     ch = logging.StreamHandler()
     ch.setLevel(level)
-    ch.setFormatter(logging.Formatter("[%(levelname)s] %(funcName)s: %(message)s"))
+    ch.setFormatter(ConsoleFormatter())
     log.addHandler(ch)
 
 
@@ -103,7 +127,7 @@ if __name__ == "__main__":
     args = init_args(sys.argv[1:])
 
     # Configure logging. One logfile per day, e.g. 'log/2021-03-12.log'.
-    today = str(datetime.now().strftime(r"%Y-%m-%d"))
+    today = datetime.now().strftime(r"%Y-%m-%d")
     logpath = pathlib.Path(config["project"]["logdir"]) / f"{today}.log"
     loglevel = logging.getLevelName(args.loglevel.upper())
     init_logging(logpath, loglevel)
@@ -112,8 +136,28 @@ if __name__ == "__main__":
     # Dispatch commands.
     if args.command == "rss":
         if args.rss_command == "fetch":
-            log.info("rss fetch!")
+            # feeds auslesen
+            urls = config["rss"]["feeds"]
+            log.debug(f"Fetching from {len(urls)} feeds")
+            log.info(f"Fetching from {len(urls)} feeds")
+            log.warning(f"Fetching from {len(urls)} feeds")
+            log.error(f"Fetching from {len(urls)} feeds")
+            log.critical(f"Fetching from {len(urls)} feeds")
+#            for url in urls:
+#                logging.info
+
+            #
+            # für jeden feed in db speichern
         elif args.rss_command == "download":
+            log.debug("rss download!")
             log.info("rss download!")
+            log.warning("rss download!")
+            log.error("rss download!")
+            log.critical("rss download!")
         elif args.rss_command == "extract":
             log.info("rss extract!")
+            log.debug("rss extract!")
+            log.info("rss extract!")
+            log.warning("rss extract!")
+            log.error("rss extract!")
+            log.critical("rss extract!")
