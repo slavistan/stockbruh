@@ -57,17 +57,16 @@ def feeds_to_dataframe(urls: list, tags: dict = DEFAULT_RSS_FIELD_NAMES) -> pd.D
     df = pd.DataFrame(columns=[val for val in tags.values()], dtype="string")
     for url in urls:
         response = requests.get(url, timeout=3, headers={"User-Agent": util.USERAGENT})
-        if response.status_code == 200:
-            soup = bs4.BeautifulSoup(response.text, 'xml').find("rss")
-            if soup is not None:
-                for item in soup.find_all("item"):
-                    record = {}
-                    for rss_tag, field_name in tags.items():
-                        tag = item.find(rss_tag)
-                        record[field_name] = tag.text if tag is not None else ""
-                    df = df.append(record, ignore_index=True)
-        else:
-            log.error(f"Download of RSS feed {url} failed.")
+        response.raise_for_status()
+
+        soup = bs4.BeautifulSoup(response.text, 'xml').find("rss")
+        if soup is not None:
+            for item in soup.find_all("item"):
+                record = {}
+                for rss_tag, field_name in tags.items():
+                    tag = item.find(rss_tag)
+                    record[field_name] = tag.text if tag is not None else ""
+                df = df.append(record, ignore_index=True)
     return df
 
 

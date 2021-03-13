@@ -80,7 +80,7 @@ def init_logging(logpath: pathlib.Path, level=logging.INFO):
         redbold = "\x1b[0;31;1;21m"
         reset = "\x1b[0m"
         level = "%(levelname).4s"
-        suffix = " %(asctime)s.%(msecs)03d %(filename)s:%(lineno)d %(message)s"
+        suffix = " %(asctime)s.%(msecs)03d %(message)s"
 
         FORMATS = {
             logging.DEBUG: whitebold + level + reset + suffix,
@@ -136,18 +136,25 @@ if __name__ == "__main__":
     # Dispatch commands.
     if args.command == "rss":
         if args.rss_command == "fetch":
-            # feeds auslesen
             urls = config["rss"]["feeds"]
-            log.debug(f"Fetching from {len(urls)} feeds")
-            log.info(f"Fetching from {len(urls)} feeds")
-            log.warning(f"Fetching from {len(urls)} feeds")
-            log.error(f"Fetching from {len(urls)} feeds")
-            log.critical(f"Fetching from {len(urls)} feeds")
-#            for url in urls:
-#                logging.info
 
-            #
-            # für jeden feed in db speichern
+            # Convert paths from Posix used in the config to whatever the OS is using.
+            feedsdb_path = pathlib.Path(pathlib.PurePosixPath(config["rss"]["feedsdb-path"]))
+            feedsdb_schema = pathlib.Path(pathlib.PurePosixPath(config["rss"]["feedsdb-schema"]))
+
+            # Count rows in database table before insertion
+            util.create_db(feedsdb_path, feedsdb_schema)
+            log.info(f"Fetching {len(urls)} RSS feeds ...")
+            for ii, url in enumerate(urls, 1):
+                try:
+                    rss.feeds_to_database([url], feedsdb_path, tablename="items",
+                                          tags={"guid": "rss_guid", "link": "rss_link", "pubDate": "rss_pubdate",
+                                                "title": "rss_title", "description": "rss_description"},
+                                          keys=["rss_guid", "rss_link"])
+                    log.info(f"  - {url} ... success.")
+                except Exception as e:
+                    log.error(f"  - {url} ... error: {e}")
+
         elif args.rss_command == "download":
             log.debug("rss download!")
             log.info("rss download!")
